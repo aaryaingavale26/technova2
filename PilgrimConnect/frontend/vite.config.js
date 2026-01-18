@@ -4,8 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from "path";
 
 export default defineConfig({
-  plugins: [tailwindcss(),
-react()],
+  plugins: [tailwindcss(),react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -13,17 +12,9 @@ react()],
   },
   server: {
     proxy: {
-      '/pilgrims': {
-        target: 'http://localhost:8081',
-        changeOrigin: true,
-        secure: false,
-      },
-      // ADD THIS NEW BLOCK:
-      '/darshan': {
-        target: 'http://localhost:8081',
-        changeOrigin: true,
-        secure: false,
-      },
+      '/pilgrims': 'http://localhost:8081',
+      '/darshan': 'http://localhost:8081',
+      '/auth': 'http://localhost:8081', // <--- ADD THIS
     },
   },
 })
