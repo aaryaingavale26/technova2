@@ -5,18 +5,56 @@ const router = express.Router();
 
 // GET all pilgrims
 router.get("/", (req, res) => {
-  db.query("SELECT * FROM pilgrims", (err, data) => {
+  const q = "SELECT * FROM pilgrims";
+  db.query(q, (err, data) => {
     if (err) return res.status(500).json(err);
-    res.json(data);
+    return res.status(200).json(data);
   });
 });
 
-// CREATE pilgrim
+// POST new pilgrim (Fixes Entity Issue: Matches Frontend Form Data)
 router.post("/", (req, res) => {
-  const sql = "INSERT INTO pilgrims SET ?";
-  db.query(sql, req.body, (err, result) => {
+  const q = "INSERT INTO pilgrims (`full_name`, `phone`, `age`, `gender`) VALUES (?)";
+  
+  const values = [
+    req.body.full_name,
+    req.body.phone,
+    req.body.age,
+    req.body.gender,
+  ];
+
+  db.query(q, [values], (err, data) => {
     if (err) return res.status(500).json(err);
-    res.json({ id: result.insertId });
+    return res.status(201).json("Pilgrim has been registered successfully.");
+  });
+});
+
+// DELETE pilgrim
+router.delete("/:id", (req, res) => {
+  const pilgrimId = req.params.id;
+  const q = "DELETE FROM pilgrims WHERE id = ?";
+
+  db.query(q, [pilgrimId], (err, data) => {
+    if (err) return res.status(500).json(err);
+    return res.json("Pilgrim has been deleted successfully.");
+  });
+});
+
+// UPDATE pilgrim (Fixes Entity Issue)
+router.put("/:id", (req, res) => {
+  const pilgrimId = req.params.id;
+  const q = "UPDATE pilgrims SET `full_name`= ?, `phone`= ?, `age`= ?, `gender`= ? WHERE id = ?";
+
+  const values = [
+    req.body.full_name,
+    req.body.phone,
+    req.body.age,
+    req.body.gender,
+  ];
+
+  db.query(q, [...values, pilgrimId], (err, data) => {
+    if (err) return res.status(500).json(err);
+    return res.json("Pilgrim details have been updated successfully.");
   });
 });
 

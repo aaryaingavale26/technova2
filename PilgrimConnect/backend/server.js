@@ -1,15 +1,21 @@
 import express from "express";
 import cors from "cors";
 import pilgrimRoutes from "./routes/pilgrims.js";
+import darshanRoutes from "./routes/darshan.js"; // <--- 1. Import this
 
 const app = express();
 
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
-// API routes
-app.use("/api/pilgrims", pilgrimRoutes);
+// Routes
+app.use("/pilgrims", pilgrimRoutes);
+app.use("/darshan", darshanRoutes); // <--- 2. Add this line
 
-app.listen(5000, () => {
-  console.log("Backend running at http://localhost:5000");
+app.get("/", (req, res) => {
+  res.json("Hello from Pilgrim Connect Backend!");
+});
+
+app.listen(8081, () => {
+  console.log("Connected to backend on port 8081!");
 });

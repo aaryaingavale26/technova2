@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format, addDays, parse } from 'date-fns';
+import axios from 'axios';
+import { format, addDays } from 'date-fns';
 import { 
   MapPin, 
   Calendar, 
@@ -11,33 +10,55 @@ import {
   CheckCircle,
   AlertCircle,
   User,
-  Phone,
-  Mail,
-  CreditCard,
   Star,
   Loader2
 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/Components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/Components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
+import { Checkbox } from "@/Components/ui/checkbox";
 import { motion, AnimatePresence } from 'framer-motion';
-import CrowdIndicator from '@/components/ui/CrowdIndicator';
-import QRTicket from '@/components/booking/QRTicket';
+// Make sure these components exist or comment them out if not
+import CrowdIndicator from '@/Components/ui/CrowdIndication'; 
+
+// --- UPDATED MOCK DATA WITH YOUR IMAGES ---
+const MOCK_TEMPLES = [
+  {
+    id: '1',
+    name: 'Shri Kashi Vishwanath',
+    city: 'Varanasi',
+    state: 'Uttar Pradesh',
+    opening_time: '04:00',
+    closing_time: '23:00',
+    slot_capacity: 500,
+    current_crowd_level: 'high',
+    // Updated Image for Kashi Vishwanath
+    image_url: 'https://tse4.mm.bing.net/th/id/OIP.eo2cs79eahrwSqoVwMgtQgHaFA?pid=Api&P=0&h=180'
+  },
+  {
+    id: '2',
+    name: 'Siddhivinayak Temple',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    opening_time: '05:30',
+    closing_time: '21:00',
+    slot_capacity: 300,
+    current_crowd_level: 'moderate',
+    // Updated Image for Siddhivinayak
+    image_url: 'https://tse2.mm.bing.net/th/id/OIP.Amu06Ha4uxQv5kC00P-HhAHaGT?pid=Api&P=0&h=180'
+  }
+];
 
 export default function BookDarshan() {
-  const queryClient = useQueryClient();
-  const urlParams = new URLSearchParams(window.location.search);
-  const preselectedTemple = urlParams.get('temple');
-
   const [step, setStep] = useState(1);
-  const [user, setUser] = useState(null);
-  const [selectedTemple, setSelectedTemple] = useState(preselectedTemple || '');
+  const [loading, setLoading] = useState(false);
+  const [selectedTemple, setSelectedTemple] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedSlot, setSelectedSlot] = useState('');
+  
   const [pilgrimData, setPilgrimData] = useState({
     full_name: '',
     phone: '',
@@ -50,33 +71,13 @@ export default function BookDarshan() {
     emergency_contact_name: '',
     emergency_contact_phone: ''
   });
+  
   const [groupSize, setGroupSize] = useState(1);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [bookingComplete, setBookingComplete] = useState(null);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userData = await base44.auth.me();
-        setUser(userData);
-        setPilgrimData(prev => ({
-          ...prev,
-          full_name: userData.full_name || '',
-          email: userData.email || ''
-        }));
-      } catch (e) {
-        base44.auth.redirectToLogin();
-      }
-    };
-    loadUser();
-  }, []);
-
-  const { data: temples = [] } = useQuery({
-    queryKey: ['temples'],
-    queryFn: () => base44.entities.Temple.list()
-  });
-
-  const selectedTempleData = temples.find(t => t.id === selectedTemple);
+  // Get selected temple details
+  const selectedTempleData = MOCK_TEMPLES.find(t => t.id === selectedTemple);
 
   // Generate time slots based on temple config
   const generateSlots = () => {
@@ -84,82 +85,48 @@ export default function BookDarshan() {
     const slots = [];
     const startHour = parseInt(selectedTempleData.opening_time?.split(':')[0]) || 6;
     const endHour = parseInt(selectedTempleData.closing_time?.split(':')[0]) || 20;
-    const duration = selectedTempleData.slot_duration_minutes || 60;
-
+    
     for (let hour = startHour; hour < endHour; hour++) {
-      for (let min = 0; min < 60; min += duration) {
-        if (hour * 60 + min + duration <= endHour * 60) {
-          const startTime = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}`;
-          const endMin = min + duration;
-          const endH = hour + Math.floor(endMin / 60);
-          const endM = endMin % 60;
-          const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-          slots.push({
-            time: `${startTime} - ${endTime}`,
-            available: Math.floor(Math.random() * (selectedTempleData.slot_capacity || 100)),
-            capacity: selectedTempleData.slot_capacity || 100
-          });
-        }
-      }
+      const startTime = `${hour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+      
+      slots.push({
+        time: `${startTime} - ${endTime}`,
+        available: Math.floor(Math.random() * 50) + 10, // Mock availability
+        capacity: selectedTempleData.slot_capacity
+      });
     }
     return slots;
   };
 
   const slots = generateSlots();
-
-  // Generate next 7 days
   const availableDates = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i + 1));
 
-  const createBookingMutation = useMutation({
-    mutationFn: async (data) => {
-      // First create or find pilgrim
-      const pilgrims = await base44.entities.Pilgrim.filter({ id_number: pilgrimData.id_number });
-      let pilgrimId;
-      
-      if (pilgrims.length > 0) {
-        pilgrimId = pilgrims[0].id;
-        await base44.entities.Pilgrim.update(pilgrimId, pilgrimData);
-      } else {
-        const newPilgrim = await base44.entities.Pilgrim.create(pilgrimData);
-        pilgrimId = newPilgrim.id;
-      }
-
-      // Create booking
-      const ticketNumber = `DS${Date.now().toString(36).toUpperCase()}`;
-      const booking = await base44.entities.Booking.create({
-        pilgrim_id: pilgrimId,
-        temple_id: selectedTemple,
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      // Prepare payload matches Backend Schema
+      const payload = {
+        full_name: pilgrimData.full_name,
         booking_date: selectedDate,
         slot_time: selectedSlot,
-        ticket_number: ticketNumber,
-        qr_code: ticketNumber,
-        status: 'confirmed',
-        priority_access: pilgrimData.priority_category !== 'none',
-        group_size: groupSize,
-        pilgrim_name: pilgrimData.full_name,
-        pilgrim_phone: pilgrimData.phone
-      });
+        members: groupSize,
+        special_needs: pilgrimData.priority_category !== 'none' ? pilgrimData.priority_category : 'None'
+      };
 
-      // Create notification
-      await base44.entities.Notification.create({
-        recipient_id: pilgrimId,
-        recipient_type: 'pilgrim',
-        title: 'Booking Confirmed!',
-        message: `Your darshan at ${selectedTempleData?.name} is confirmed for ${format(new Date(selectedDate), 'dd MMM yyyy')} at ${selectedSlot}`,
-        type: 'booking_confirmation',
-        priority: 'normal'
-      });
+      // Connects to your running Backend
+      const response = await axios.post('/darshan', payload);
 
-      return booking;
-    },
-    onSuccess: (booking) => {
-      setBookingComplete(booking);
-      setStep(4);
+      if (response.status === 200 || response.status === 201) {
+        setBookingComplete({ ...payload, ticket_number: "TKT-" + Date.now() });
+        setStep(4);
+      }
+    } catch (error) {
+      console.error("Booking Error:", error);
+      alert("Failed to book darshan. Please check if backend is running.");
+    } finally {
+      setLoading(false);
     }
-  });
-
-  const handleSubmit = () => {
-    createBookingMutation.mutate();
   };
 
   const priorityOptions = [
@@ -186,16 +153,20 @@ export default function BookDarshan() {
             </CardHeader>
             <CardContent className="space-y-4">
               <RadioGroup value={selectedTemple} onValueChange={setSelectedTemple}>
-                {temples.map((temple) => (
+                {MOCK_TEMPLES.map((temple) => (
                   <div key={temple.id} className="relative">
                     <RadioGroupItem value={temple.id} id={temple.id} className="peer sr-only" />
                     <Label
                       htmlFor={temple.id}
                       className="flex items-start gap-4 p-4 rounded-xl border-2 border-gray-100 cursor-pointer transition-all peer-data-[state=checked]:border-orange-400 peer-data-[state=checked]:bg-orange-50 hover:bg-gray-50"
                     >
-                      <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200">
                         {temple.image_url ? (
-                          <img src={temple.image_url} alt={temple.name} className="w-full h-full object-cover rounded-lg" />
+                          <img 
+                            src={temple.image_url} 
+                            alt={temple.name} 
+                            className="w-full h-full object-cover" 
+                          />
                         ) : (
                           <span className="text-3xl">🛕</span>
                         )}
@@ -220,19 +191,13 @@ export default function BookDarshan() {
                           </span>
                         </div>
                         <div className="mt-2">
-                          <CrowdIndicator level={temple.current_crowd_level || 'low'} size="sm" />
+                          <CrowdIndicator level={temple.current_crowd_level} size="sm" />
                         </div>
                       </div>
                     </Label>
                   </div>
                 ))}
               </RadioGroup>
-
-              {temples.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No temples available at the moment</p>
-                </div>
-              )}
 
               <Button
                 className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-full py-6"
@@ -263,21 +228,24 @@ export default function BookDarshan() {
               <div>
                 <Label className="text-sm font-medium text-gray-700 mb-3 block">Choose Date</Label>
                 <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
-                  {availableDates.map((date) => (
-                    <button
-                      key={date.toISOString()}
-                      onClick={() => setSelectedDate(format(date, 'yyyy-MM-dd'))}
-                      className={`p-3 rounded-xl border-2 text-center transition-all ${
-                        selectedDate === format(date, 'yyyy-MM-dd')
-                          ? 'border-orange-400 bg-orange-50'
-                          : 'border-gray-100 hover:border-orange-200'
-                      }`}
-                    >
-                      <div className="text-xs text-gray-500">{format(date, 'EEE')}</div>
-                      <div className="text-lg font-bold text-gray-900">{format(date, 'd')}</div>
-                      <div className="text-xs text-gray-500">{format(date, 'MMM')}</div>
-                    </button>
-                  ))}
+                  {availableDates.map((date) => {
+                    const formatted = format(date, 'yyyy-MM-dd');
+                    return (
+                      <button
+                        key={date.toISOString()}
+                        onClick={() => setSelectedDate(formatted)}
+                        className={`p-3 rounded-xl border-2 text-center transition-all ${
+                          selectedDate === formatted
+                            ? 'border-orange-400 bg-orange-50'
+                            : 'border-gray-100 hover:border-orange-200'
+                        }`}
+                      >
+                        <div className="text-xs text-gray-500">{format(date, 'EEE')}</div>
+                        <div className="text-lg font-bold text-gray-900">{format(date, 'd')}</div>
+                        <div className="text-xs text-gray-500">{format(date, 'MMM')}</div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -288,7 +256,6 @@ export default function BookDarshan() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {slots.map((slot) => {
                       const isAvailable = slot.available > 0;
-                      const isFilling = slot.available < slot.capacity * 0.3;
                       return (
                         <button
                           key={slot.time}
@@ -304,9 +271,6 @@ export default function BookDarshan() {
                         >
                           <div className="flex items-center justify-between mb-1">
                             <span className="font-semibold text-gray-900">{slot.time.split(' - ')[0]}</span>
-                            {isFilling && isAvailable && (
-                              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Filling Fast</span>
-                            )}
                           </div>
                           <div className="text-xs text-gray-500">
                             {isAvailable ? `${slot.available} slots left` : 'Fully Booked'}
@@ -460,36 +424,6 @@ export default function BookDarshan() {
                 </RadioGroup>
               </div>
 
-              {/* Emergency Contact */}
-              <div className="p-4 bg-red-50 rounded-xl border border-red-100">
-                <h4 className="font-medium text-red-800 mb-3 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  Emergency Contact
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="emergency_name">Contact Name</Label>
-                    <Input
-                      id="emergency_name"
-                      value={pilgrimData.emergency_contact_name}
-                      onChange={(e) => setPilgrimData({ ...pilgrimData, emergency_contact_name: e.target.value })}
-                      placeholder="Emergency contact name"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="emergency_phone">Contact Phone</Label>
-                    <Input
-                      id="emergency_phone"
-                      value={pilgrimData.emergency_contact_phone}
-                      onChange={(e) => setPilgrimData({ ...pilgrimData, emergency_contact_phone: e.target.value })}
-                      placeholder="Emergency phone number"
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-              </div>
-
               {/* Terms */}
               <div className="flex items-start gap-3">
                 <Checkbox
@@ -498,7 +432,7 @@ export default function BookDarshan() {
                   onCheckedChange={setAgreedTerms}
                 />
                 <Label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer">
-                  I agree to the terms and conditions and confirm that all details provided are accurate. I understand that my ID will be verified at the entry gate.
+                  I agree to the terms and conditions and confirm that all details provided are accurate.
                 </Label>
               </div>
 
@@ -523,12 +457,6 @@ export default function BookDarshan() {
                       <span className="text-gray-600">Pilgrims</span>
                       <span className="font-medium">{groupSize}</span>
                     </div>
-                    {pilgrimData.priority_category !== 'none' && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Priority Access</span>
-                        <span className="font-medium text-orange-600">✓ Yes</span>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -539,10 +467,10 @@ export default function BookDarshan() {
                 </Button>
                 <Button
                   className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white rounded-full py-6"
-                  disabled={!pilgrimData.full_name || !pilgrimData.phone || !pilgrimData.id_number || !agreedTerms || createBookingMutation.isPending}
+                  disabled={!pilgrimData.full_name || !pilgrimData.phone || !agreedTerms || loading}
                   onClick={handleSubmit}
                 >
-                  {createBookingMutation.isPending ? (
+                  {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                       Booking...
@@ -572,26 +500,20 @@ export default function BookDarshan() {
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h2>
               <p className="text-gray-600 mb-8">Your darshan has been successfully booked</p>
               
-              {bookingComplete && (
-                <QRTicket 
-                  booking={bookingComplete} 
-                  temple={selectedTempleData}
-                  pilgrim={pilgrimData}
-                />
-              )}
-
-              <div className="mt-6 space-y-3">
-                <p className="text-sm text-gray-500">
-                  A confirmation has been sent to your phone and email
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="rounded-full"
-                  onClick={() => window.location.href = createPageUrl('MyBookings')}
-                >
-                  View All Bookings
-                </Button>
+              <div className="bg-gray-50 p-4 rounded-lg text-left mb-6">
+                <p><strong>Name:</strong> {bookingComplete?.full_name}</p>
+                <p><strong>Date:</strong> {bookingComplete?.booking_date}</p>
+                <p><strong>Time:</strong> {bookingComplete?.slot_time}</p>
+                <p><strong>Ticket ID:</strong> {bookingComplete?.ticket_number}</p>
               </div>
+
+              <Button 
+                variant="outline" 
+                className="rounded-full w-full"
+                onClick={() => window.location.href = '/'}
+              >
+                Go to Home
+              </Button>
             </CardContent>
           </motion.div>
         );
@@ -601,7 +523,6 @@ export default function BookDarshan() {
   return (
     <div className="min-h-screen py-8 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Progress Steps */}
         {step < 4 && (
           <div className="mb-8">
             <div className="flex items-center justify-center gap-2">

@@ -3,14 +3,14 @@ import mysql from "mysql2";
 export const db = mysql.createConnection({
   host: "localhost",
   user: "root",
-  password: "",
-  database: "pilgrim_connect"
+  password: "", // TODO: Update with your MySQL password
+  database: "pilgrim_connect"     // Ensure this matches your MySQL Database Name
 });
 
 db.connect((err) => {
   if (err) {
-    console.error("DB connection failed:", err);
-  } else {
-    console.log("MySQL connected");
+    console.error("Error connecting to the database:", err);
+    return;
   }
+  console.log("Connected to the MySQL database.");
 });

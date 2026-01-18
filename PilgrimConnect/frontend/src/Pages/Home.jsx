@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from 'framer-motion';
-import CrowdIndicator from '@/components/ui/CrowdIndicator';
+import CrowdIndicator from "@/Components/ui/CrowdIndication";
 
 export default function Home() {
   const [user, setUser] = useState(null);
